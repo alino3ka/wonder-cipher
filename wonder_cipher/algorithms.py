@@ -1,54 +1,102 @@
-"""Различные методы шифрования и дешифрования, а также run_cipher"""
+"""Модуль с алгоритмами шифрования: Атбаш, Цезарь и Вегенер"""
 
-import string
+from abc import ABC, abstractmethod
 
-alfavit = string.ascii_uppercase
-alfavit_small = string.ascii_lowercase
-
-
-def run_cipher(password, one_char_cipher, key):
-    """Преобразует пароль побуквенно с помощью one_char_cipher"""
-    output_password = []
-    for i, ch in enumerate(password):
-        in_alfavit = alfavit.find(ch)
-        in_alfavit_small = alfavit_small.find(ch)
-        if in_alfavit != -1:
-            another_ch = one_char_cipher(i, in_alfavit, key)
-            output_password.append(alfavit[another_ch])
-        elif in_alfavit_small != -1:
-            another_ch = one_char_cipher(i, in_alfavit_small, key)
-            output_password.append(alfavit_small[another_ch])
-        else:
-            output_password.append(ch)
-    return ''.join(output_password)
+ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~"
+N = len(ALPHABET)
 
 
-def ceaser(i, ch, key):
-    """Шифрования методом Цезаря, key это целое число, которое обозначает сдвиг"""
-    return (ch + key) % 26
+def _validate_type(value, type_, name):
+    if not isinstance(value, type_):
+        raise TypeError(f"{name} must be {type_.__name__}, got {type(value).__name__}")
 
 
-def atbash(i, ch, key):
-    """Шифрование и дешифрование методом Атбаша, не использует key"""
-    return (25 - ch) % 26
+class Cipher(ABC):
+    """Абстрактный класс для представления шифров посимвольной замены"""
+
+    def cipher(self, password):
+        """Зашифровать переданный текст"""
+        return self._run(self._one_char_cipher, password)
+
+    def decipher(self, password):
+        """
+        Дешифровать переданный текст. Чтобы получить правильный ответ,
+        дешифровать надо тем же алгоритмом и с теми же параметрами.
+        """
+        return self._run(self._one_char_decipher, password)
+
+    @staticmethod
+    def _run(fn, password):
+        """Обработать `password` с помощью `fn`"""
+        _validate_type(password, str, "password")
+        output_password = []
+        for i, ch in enumerate(password):
+            num_ch = ALPHABET.find(ch)
+            if num_ch != -1:
+                output_password.append(ALPHABET[fn(num_ch, i)])
+            else:
+                output_password.append(ch)
+        return "".join(output_password)
+
+    @abstractmethod
+    def _one_char_cipher(self, ch, i):
+        """
+        Зашифровать один символ, который задается своей позицией в алфавите и его
+        порядковым номером (с нуля). Результат также должен быть позицией в алфавите
+        """
+        ...
+
+    @abstractmethod
+    def _one_char_decipher(self, ch, i):
+        """
+        Дешифровать один символ, который задается своей позицией в алфавите и его
+        порядковым номером (с нуля). Результат также должен быть позицией в алфавите
+        """
+        ...
 
 
-def vinger(i, ch, key):
-    """Шифрование методом Вижинера"""
-    if alfavit.find(key[i % len(key)]) != -1:
-        return (ch + alfavit.find(key[i % len(key)])) % 26
-    else:
-        return (ch + alfavit_small.find(key[i % len(key)])) % 26
+class Atbash(Cipher):
+    """Шифр Атбаш"""
+    def _one_char_cipher(self, ch, _i):
+        return (N - 1 - ch) % N
+
+    def _one_char_decipher(self, ch, _i):
+        return self._one_char_cipher(ch, _i)
 
 
-def anti_ceaser(i, ch, key):
-    """Дешифрование методом Цезаря, key это целое число, которое обозначает сдвиг"""
-    return (ch - key) % 26
+class Caesar(Cipher):
+    """Шифр Цезаря, в качестве ключа используется целое число"""
+
+    def __init__(self, key):
+        _validate_type(key, int, "key")
+        super().__init__()
+        self.key = key
+
+    def _one_char_cipher(self, ch, _i):
+        return (ch + self.key) % N
+
+    def _one_char_decipher(self, ch, _i):
+        return (ch - self.key) % N
 
 
-def anti_vinger(i, ch, key):
-    """Дешифрование методом Вижинера"""
-    if alfavit.find(key[i % len(key)]) != -1:
-        return (ch - alfavit.find(key[i % len(key)])) % 26
-    else:
-        return (ch - alfavit_small.find(key[i % len(key)])) % 26
+class Vigenere(Cipher):
+    """Шифр Вегенера, в качестве ключа используется непустая фраза, все символы которой должны быть из алфавита"""
+
+    def __init__(self, key):
+        _validate_type(key, str, "key")
+        if key == "":
+            raise ValueError("key must not be empty")
+        if any(ch not in ALPHABET for ch in key):
+            raise ValueError("key must be be composed only from alphabet characters")
+
+        super().__init__()
+        self.key = [ALPHABET.find(ch) for ch in key]
+        self.n = len(key)
+
+    def _one_char_cipher(self, ch, i):
+        return (ch + self.key[i % self.n]) % N
+
+    def _one_char_decipher(self, ch, i):
+        return (ch - self.key[i % self.n]) % N
+
+

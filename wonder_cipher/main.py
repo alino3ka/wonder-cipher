@@ -2,46 +2,44 @@ from tkinter import Tk
 from tkinter import ttk
 from tkinter.messagebox import showerror
 
-import algorithms
+from wonder_cipher.algorithms import Caesar, Atbash, Vigenere, Cipher
+
+
+def _with_label(frm, row, label, entry):
+    """Добавляет `entry` с пояснительным текстом на строку `row`"""
+    ttk.Label(frm, text=label).grid(column=0, row=row)
+    entry.grid(column=1, row=row)
+    return entry
+
+
+def _catch_error(f):
+    """Перехватывает все ошибки и показывает их пользователю"""
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            showerror("Exception", str(e))
+    return wrapper
 
 
 def main():
-    def do_cipher():
-        """Запускает шифрование выбранным методом, обновляет результат"""
-        if method.get() == "Цезарь":
-            if not key.get().isdigit():
-                showerror("Ошибка", "Ключ должен быть числом")
+    def run_method(action):
+        @_catch_error
+        def wrapper():
+            if method.get() == "Цезарь":
+                try:
+                    caesar_key = int(key.get())
+                except ValueError:
+                    raise ValueError("key must be integer value")
+                cipher = Caesar(caesar_key)
+            elif method.get() == "Атбаш":
+                cipher = Atbash()
+            elif method.get() == "Вегенер":
+                cipher = Vigenere(key.get())
             else:
-                shift = int(key.get())
-                output.config(text=algorithms.run_cipher(text.get(), algorithms.ceaser, shift))
-        elif method.get() == "Атбаш":
-            output.config(text=algorithms.run_cipher(text.get(), algorithms.atbash, 0))
-        elif method.get() == "Вижинер":
-            if key.get() == "":
-                showerror("Ошибка", "Ключ не должен быть пустым")
-            else:
-                output.config(text=algorithms.run_cipher(text.get(), algorithms.vinger, key.get()))
-        else:
-            showerror("Ошибка", "Неправильный шифр")
-
-
-    def do_decipher():
-        """Запускает дешифрование выбранным методом, обновляет результат"""
-        if method.get() == "Цезарь":
-            if not key.get().isdigit():
-                showerror("Ошибка", "Ключ должен быть числом")
-            else:
-                shift = int(key.get())
-                output.config(text=algorithms.run_cipher(text.get(), algorithms.anti_ceaser, shift))
-        elif method.get() == "Атбаш":
-            output.config(text=algorithms.run_cipher(text.get(), algorithms.atbash, 0))
-        elif method.get() == "Вижинер":
-            if key.get() == "":
-                showerror("Ошибка", "Ключ не должен быть пустым")
-            else:
-                output.config(text=algorithms.run_cipher(text.get(), algorithms.anti_vinger, key.get()))
-        else:
-            showerror("Ошибка", "Неправильный шифр")
+                raise ValueError(f"undefined cipher method: {method.get()}")
+            output.config(text=action(cipher, text.get()))
+        return wrapper
 
 
     root = Tk()
@@ -49,24 +47,14 @@ def main():
     frm = ttk.Frame(root, padding=10)
     frm.grid()
 
-    ttk.Label(frm, text="Текст: ").grid(column=0, row=0)
-    text = ttk.Entry(frm)
-    text.grid(column=1, row=0)
-
-    ttk.Label(frm, text="Ключ: ").grid(column=0, row=1)
-    key = ttk.Entry(frm)
-    key.grid(column=1, row=1)
-
-    ttk.Label(frm, text="Шифр: ").grid(column=0, row=2)
-    method = ttk.Combobox(frm, values=["Цезарь", "Атбаш", "Вижинер"])
-    method.grid(column=1, row=2)
-
-    ttk.Button(frm, text="Шифровать", command=do_cipher).grid(column=0, row=3)
-    ttk.Button(frm, text="Дешифровать", command=do_decipher).grid(column=1, row=3)
-
-    ttk.Label(frm, text="Вывод: ").grid(column=0, row=4)
-    output = ttk.Label(frm, text="Ты лапочка")
-    output.grid(column=1, row=4)
+    text = _with_label(frm, 0, "Текст:", ttk.Entry(frm))
+    key = _with_label(frm, 1, "Ключ:", ttk.Entry(frm))
+    method = _with_label(
+        frm, 2, "Шифр:",
+        ttk.Combobox(frm, values=["Цезарь", "Атбаш", "Вегенер"]))
+    ttk.Button(frm, text="Шифровать", command=run_method(Cipher.cipher)).grid(column=0, row=3)
+    ttk.Button(frm, text="Дешифровать", command=run_method(Cipher.decipher)).grid(column=1, row=3)
+    output = _with_label(frm, 4, "Вывод:", ttk.Label(frm, text="Ты лапочка"))
 
     root.mainloop()
 
